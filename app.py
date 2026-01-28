@@ -1,7 +1,11 @@
-from openai import OpenAI
-import os
+from transformers import pipeline
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+print("Loading model... (first run takes 1–2 minutes)")
+
+chatbot = pipeline(
+    "text-generation",
+    model="microsoft/DialoGPT-medium"
+)
 
 print("Chatbot started. Type 'exit' to quit.")
 
@@ -11,12 +15,6 @@ while True:
     if user_input.lower() == "exit":
         break
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": user_input}
-        ]
-    )
+    result = chatbot(user_input, max_length=200)
 
-    print("Bot:", response.choices[0].message.content)
+    print("Bot:", result[0]["generated_text"])
