@@ -1,20 +1,40 @@
-from transformers import pipeline
+import gradio as gr
+from transformers import AutoModelForCausalLM, AutoTokenizer
+import torch
 
-print("Loading model... (first run takes 1–2 minutes)")
+tokenizer = AutoTokenizer.from_pretrained("microsoft/DialoGPT-medium")
+model = AutoModelForCausalLM.from_pretrained("microsoft/DialoGPT-medium")
 
-chatbot = pipeline(
-    "text-generation",
-    model="microsoft/DialoGPT-medium"
+chat_history_ids = None
+
+def chat(user_input):
+    global chat_history_ids
+
+    new_input_ids = tokenizer.encode(user_input + tokenizer.eos_token, return_tensors="pt")
+
+    if chat_history_ids is not None:
+        bot_input_ids = torch.cat([chat_history_ids, new_input_ids], dim=-1)
+    else:
+        bot_input_ids = new_input_ids
+
+    chat_history_ids = model.generate(
+        bot_input_ids,
+        max_length=1000,
+        pad_token_id=tokenizer.eos_token_id
+    )
+
+    reply = tokenizer.decode(
+        chat_history_ids[:, bot_input_ids.shape[-1]:][0],
+        skip_special_tokens=True
+    )
+
+    return reply
+
+demo = gr.Interface(
+    fn=chat,
+    inputs="text",
+    outputs="text",
+    title="Simple DialoGPT Chatbot"
 )
 
-print("Chatbot started. Type 'exit' to quit.")
-
-while True:
-    user_input = input("You: ")
-
-    if user_input.lower() == "exit":
-        break
-
-    result = chatbot(user_input, max_length=200)
-
-    print("Bot:", result[0]["generated_text"])
+demo.launch()
